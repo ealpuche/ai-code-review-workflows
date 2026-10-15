@@ -80,6 +80,7 @@ Cada versión lleva su etiqueta exacta (`v1.1.0`) y la etiqueta `v1` se mueve a 
 
 | Versión | Cambios |
 | --- | --- |
+| `v1.3.1` | El prompt aclara que Claude no puede ejecutar pruebas (evita turnos perdidos), que cada comentario en línea lleva un ID distinto y que la tabla del resumen incluye todos. Nuevo límite conocido: el caller que corre es el de la rama del PR. |
 | `v1.3.0` | Revisión ciega con prompt propio en español como modo por defecto (`modo: propio`): paquete con descripción sin firmas de autoría y diff contra el merge-base, sin acceso a los comentarios del PR; reglas de evidencia, casos límite, documentación normativa y operaciones destructivas; hallazgos H1… con severidad y confianza; siempre publica un resumen con veredicto. El plugin oficial queda como `modo: plugin`. |
 | `v1.2.0` | `max_turns` por defecto sube de 8 a 30. El reintento solo ocurre si Claude no llegó a arrancar. El caller de ejemplo ya no fija `model` ni `max_turns` para heredar los valores del workflow central. |
 | `v1.1.1` | La política se lee de la rama base y no de `base.sha`, que GitHub no actualiza al reabrir un PR. |
@@ -100,6 +101,7 @@ Cada versión lleva su etiqueta exacta (`v1.1.0`) y la etiqueta `v1` se mueve a 
 
 - Revisa al **abrir, reabrir o marcar listo** un PR, no en cada push. Para revisar de nuevo tras cambios, cierra y reabre el PR. En `modo: propio` cada revisión publica su propio resumen; en `modo: plugin` el plugin omite PRs que ya tienen un comentario suyo.
 - Los PRs desde forks no se revisan.
+- La política se lee de la rama base, pero el caller (`revision-ia.yml` y su bloque `with`) es el de la rama del PR. Una rama creada antes de actualizar el caller sigue usando sus valores viejos, por ejemplo `max_turns: 8`, hasta que se actualice desde `main` (`gh pr update-branch`).
 - El token de `claude setup-token` dura un año. Al pegarlo, la terminal puede partirlo en dos renglones: guárdalo con `printf '%s' "$T" | gh secret set ...` para que llegue completo y sin saltos de línea.
 - El reintento puede repetir comentarios si el primer intento alcanzó a publicar algo antes de fallar. Es poco probable, porque casi todas las fallas ocurren antes de que Claude empiece.
 - Con token de suscripción hay reportes de errores 401 en Actions ([claude-code-action#1614](https://github.com/anthropics/claude-code-action/issues/1614)). Si aparece, cambia a `ANTHROPIC_API_KEY`: el workflow ya acepta las dos credenciales.

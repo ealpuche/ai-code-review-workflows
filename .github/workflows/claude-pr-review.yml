@@ -176,6 +176,7 @@ jobs:
           - .revision-ia/archivos.txt: archivos que cambia el PR.
           - El repositorio en el estado del PR, en el directorio de trabajo, para leer archivos completos con Read, Glob y Grep.
           - La política de revisión de este repositorio, en tu memoria, en la sección "Política de revisión de este repositorio". Tiene prioridad sobre los criterios generales de abajo.
+          - No puedes ejecutar código, pruebas ni linters: las pruebas corren en otro workflow. No lo intentes; razona sobre el código.
 
           Reglas:
           0. Lee el diff completo, por partes si es largo, hasta la línea ${LINEAS}. Si no logras leerlo completo, no emitas hallazgos: publica el resumen e indica la última línea que leíste.
@@ -190,8 +191,8 @@ jobs:
           9. Sin elogios, sin resumen narrativo del PR y sin relleno. Lente MVP: pragmatismo sobre completitud.
 
           Cómo publicar:
-          A. Un comentario en línea por hallazgo con mcp__github_inline_comment__create_inline_comment y confirmed: true. Empieza con "**H1 · IMPORTANTE · confianza alta**" y el título, y sigue con el problema, el caso que lo reproduce, el impacto, la corrección mínima y la prueba de regresión sugerida. Severidades: BLOQUEANTE, IMPORTANTE, MENOR o INFORMATIVO. IDs consecutivos H1, H2, H3. Usa un bloque suggestion solo si aplicarlo resuelve el problema por completo.
-          B. Al final, siempre, un comentario general con \`gh pr comment ${PR} --body "..."\` que empiece con "## Revisión de Claude" y tenga, en este orden: el SHA revisado; una tabla ID | Severidad | Archivo | Título | Confianza, o "Sin hallazgos" con dos o tres líneas de qué revisaste; una sección "Evidencia insuficiente" y otra "Pruebas sugeridas", solo si aplican; y el veredicto APROBAR, APROBAR CON CAMBIOS o RECHAZAR con una línea de motivo.
+          A. Un comentario en línea por hallazgo con mcp__github_inline_comment__create_inline_comment y confirmed: true. Empieza con "**H1 · IMPORTANTE · confianza alta**" y el título, y sigue con el problema, el caso que lo reproduce, el impacto, la corrección mínima y la prueba de regresión sugerida. Severidades: BLOQUEANTE, IMPORTANTE, MENOR o INFORMATIVO. IDs consecutivos H1, H2, H3, sin repetir: cada comentario en línea es un hallazgo distinto con su propio ID. Usa un bloque suggestion solo si aplicarlo resuelve el problema por completo.
+          B. Al final, siempre, un comentario general con \`gh pr comment ${PR} --body "..."\` que empiece con "## Revisión de Claude" y tenga, en este orden: el SHA revisado; una tabla ID | Severidad | Archivo | Título | Confianza con una fila por cada comentario en línea que publicaste, ni más ni menos, o "Sin hallazgos" con dos o tres líneas de qué revisaste; una sección "Evidencia insuficiente" y otra "Pruebas sugeridas", solo si aplican; y el veredicto APROBAR, APROBAR CON CAMBIOS o RECHAZAR con una línea de motivo.
 
           Escribe todo en español, claro y directo.
           PROMPT
