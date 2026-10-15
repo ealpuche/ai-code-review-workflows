@@ -80,6 +80,7 @@ Cada versión lleva su etiqueta exacta (`v1.1.0`) y la etiqueta `v1` se mueve a 
 
 | Versión | Cambios |
 | --- | --- |
+| `v1.4.0` | Modelo por defecto: `claude-opus-5-5` (antes `claude-sonnet-5-5`). Los callers sin bloque `with` cambian solos. |
 | `v1.3.1` | El prompt aclara que Claude no puede ejecutar pruebas (evita turnos perdidos), que cada comentario en línea lleva un ID distinto y que la tabla del resumen incluye todos. Nuevo límite conocido: el caller que corre es el de la rama del PR. |
 | `v1.3.0` | Revisión ciega con prompt propio en español como modo por defecto (`modo: propio`): paquete con descripción sin firmas de autoría y diff contra el merge-base, sin acceso a los comentarios del PR; reglas de evidencia, casos límite, documentación normativa y operaciones destructivas; hallazgos H1… con severidad y confianza; siempre publica un resumen con veredicto. El plugin oficial queda como `modo: plugin`. |
 | `v1.2.0` | `max_turns` por defecto sube de 8 a 30. El reintento solo ocurre si Claude no llegó a arrancar. El caller de ejemplo ya no fija `model` ni `max_turns` para heredar los valores del workflow central. |
@@ -91,7 +92,7 @@ Cada versión lleva su etiqueta exacta (`v1.1.0`) y la etiqueta `v1` se mueve a 
 
 | Input | Por defecto | Para qué |
 | --- | --- | --- |
-| `model` | `claude-sonnet-5-5` | Equilibrio entre costo, rapidez y calidad. Para PRs de seguridad o arquitectura, `claude-opus-5-5`. |
+| `model` | `claude-opus-5-5` | Revisión más profunda. Con suscripción gasta cuota más rápido que Sonnet; con API key cuesta el doble por token ($4/$20 frente a $2/$10 por millón de tokens de entrada y salida). Para bajar costo en un repo, pasa `model: claude-sonnet-5-5` en el caller. |
 | `max_turns` | `30` | Tope de turnos de Claude por revisión. El plugin usa varios agentes y con menos de ~20 no termina en PRs grandes. |
 | `policy_path` | `.github/claude-review.md` | Ruta de la política dentro del repositorio que llama. |
 | `modo` | `propio` | `propio`: prompt en español de este repo, siempre deja resumen. `plugin`: plugin oficial `code-review`, que solo marca bugs evidentes del diff, publica en inglés y puede omitir un PR sin dejar comentario. |

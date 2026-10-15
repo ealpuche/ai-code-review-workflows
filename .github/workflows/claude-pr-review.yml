@@ -9,10 +9,12 @@ on:
   workflow_call:
     inputs:
       model:
-        description: Modelo de Claude que revisa el PR.
+        description: >-
+          Modelo de Claude que revisa el PR. Opus por defecto; para PRs
+          rutinarios se puede bajar a claude-sonnet-5-5 desde el caller.
         required: false
         type: string
-        default: claude-sonnet-5-5
+        default: claude-opus-5-5
       max_turns:
         description: >-
           Máximo de turnos de Claude por revisión, para acotar costo y tiempo.
