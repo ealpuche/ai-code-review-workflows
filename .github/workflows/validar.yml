@@ -1,0 +1,25 @@
+# Valida la sintaxis de los workflows en cada cambio.
+name: Validar workflows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Instalar actionlint
+        run: python -m pip install actionlint-py==1.7.12
+
+      - name: Revisar workflows y ejemplos
+        run: actionlint .github/workflows/*.yml ejemplos/*.yml

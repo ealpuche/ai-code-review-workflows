@@ -1,0 +1,27 @@
+# Copia este archivo a .github/workflows/revision-ia.yml en cada repositorio
+# que quieras revisar, y ajusta el dueño en la condición `if`.
+name: Revisión con IA
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review]
+
+# El workflow reutilizable no puede pedir más permisos que los que da quien
+# lo llama, así que se conceden aquí.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  claude:
+    # Evita que corra en copias del repositorio (por ejemplo, repos creados
+    # desde una plantilla), donde no existe el secreto.
+    if: github.repository_owner == 'elingenierodedatos'
+    uses: ealpuche/ai-code-review-workflows/.github/workflows/claude-pr-review.yml@v1
+    with:
+      model: claude-sonnet-5-5
+      max_turns: 8
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

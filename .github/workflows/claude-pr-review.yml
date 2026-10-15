@@ -1,0 +1,105 @@
+# Revisión automática de pull requests con Claude, reutilizable desde cualquier
+# repositorio con `uses: ealpuche/ai-code-review-workflows/.github/workflows/claude-pr-review.yml@v1`.
+#
+# Solo lee el código y comenta en el PR: no puede hacer commits, pushes ni merge.
+# Detalle y guía de instalación en el README del repositorio.
+name: Revisión de PR con Claude
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        description: Modelo de Claude que revisa el PR.
+        required: false
+        type: string
+        default: claude-sonnet-5-5
+      max_turns:
+        description: Máximo de turnos de Claude por revisión, para acotar costo y tiempo.
+        required: false
+        type: number
+        default: 8
+      policy_path:
+        description: >-
+          Ruta, dentro del repositorio que llama, del archivo con la política de
+          revisión. Se lee desde la rama base del PR, no desde el PR.
+        required: false
+        type: string
+        default: .github/claude-review.md
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: Token de suscripción generado con `claude setup-token`.
+        required: false
+      ANTHROPIC_API_KEY:
+        description: API key de Claude Console. Alternativa al token de suscripción.
+        required: false
+
+jobs:
+  revision:
+    name: Revisión con Claude
+    # Solo PRs listos para revisar y abiertos desde una rama del mismo
+    # repositorio: los PRs desde forks no reciben secretos.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: claude-review-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+
+    steps:
+      - name: Comprobar la credencial de Anthropic
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$TOKEN" ] && [ -z "$API_KEY" ]; then
+            echo "::error::Falta la credencial. Crea el secreto CLAUDE_CODE_OAUTH_TOKEN (o ANTHROPIC_API_KEY) en el repositorio y pásalo en el bloque secrets del workflow que llama."
+            exit 1
+          fi
+          if [ -n "$TOKEN" ] && [ -n "$API_KEY" ]; then
+            echo "::warning::Hay dos credenciales configuradas. Deja solo una para saber cuál se usa."
+          fi
+
+      - name: Descargar el PR
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Cargar la política de revisión desde la rama base
+        # La política se lee de la rama base para que un PR no pueda cambiar
+        # las reglas con las que se revisa a sí mismo.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          POLICY_PATH: ${{ inputs.policy_path }}
+        run: |
+          if gh api -H "Accept: application/vnd.github.raw" \
+              "repos/${REPO}/contents/${POLICY_PATH}?ref=${BASE_SHA}" > /tmp/politica.md 2>/dev/null \
+              && [ -s /tmp/politica.md ]; then
+            { echo; echo "# Política de revisión de este repositorio"; echo; cat /tmp/politica.md; } >> CLAUDE.md
+            echo "Política cargada desde ${POLICY_PATH} en la rama base."
+          else
+            echo "::notice::No hay política en ${POLICY_PATH} en la rama base. Se revisa con los criterios generales."
+          fi
+
+      - name: Revisar con Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          claude_args: >-
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max_turns }}
+            --allowedTools "mcp__github_inline_comment__create_inline_comment"
