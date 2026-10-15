@@ -20,8 +20,7 @@ jobs:
     # desde una plantilla), donde no existe el secreto.
     if: github.repository_owner == 'elingenierodedatos'
     uses: ealpuche/ai-code-review-workflows/.github/workflows/claude-pr-review.yml@v1
-    with:
-      model: claude-sonnet-5-5
-      max_turns: 8
+    # Sin bloque `with`, se usan los valores por defecto del workflow central
+    # (modelo y turnos). Agrégalo solo si este repo necesita otros.
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

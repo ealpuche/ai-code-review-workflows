@@ -22,7 +22,7 @@ En cada PR, el workflow:
 1. Comprueba que exista una credencial de Anthropic y que el PR no sea borrador ni venga de un fork.
 2. Lee `.github/claude-review.md` **desde la rama base** (un PR no puede cambiar las reglas con las que se revisa a sí mismo) y la entrega a Claude como memoria de usuario (`~/.claude/CLAUDE.md`). No se escribe en el `CLAUDE.md` del repo porque la Action lo restaura desde la rama base antes de correr.
 3. Corre el plugin oficial `code-review` de Anthropic con [`anthropics/claude-code-action`](https://github.com/anthropics/claude-code-action), que publica los hallazgos en el PR.
-4. Si la Action falla, por ejemplo por una caída de red al instalar sus dependencias, espera 30 segundos y lo intenta una vez más. Si vuelve a fallar, deja en el resumen del job una tabla con las causas típicas y qué hacer.
+4. Si la Action falla antes de que Claude arranque, por ejemplo por una caída de red al instalar sus dependencias, espera 30 segundos y lo intenta una vez más. Si Claude ya arrancó, no reintenta: el error se repetiría y costaría dos veces. Si vuelve a fallar, deja en el resumen del job una tabla con las causas típicas y qué hacer.
 
 ## Seguridad
 
@@ -79,6 +79,7 @@ Cada versión lleva su etiqueta exacta (`v1.1.0`) y la etiqueta `v1` se mueve a 
 
 | Versión | Cambios |
 | --- | --- |
+| `v1.2.0` | `max_turns` por defecto sube de 8 a 30. El reintento solo ocurre si Claude no llegó a arrancar. El caller de ejemplo ya no fija `model` ni `max_turns` para heredar los valores del workflow central. |
 | `v1.1.1` | La política se lee de la rama base y no de `base.sha`, que GitHub no actualiza al reabrir un PR. |
 | `v1.1.0` | Reintento ante fallas temporales, Actions fijadas por SHA con Dependabot, input `debug`, resumen de fallos en el job, política cargada como memoria de usuario. |
 | `v1` | Primera versión. |
@@ -88,7 +89,7 @@ Cada versión lleva su etiqueta exacta (`v1.1.0`) y la etiqueta `v1` se mueve a 
 | Input | Por defecto | Para qué |
 | --- | --- | --- |
 | `model` | `claude-sonnet-5-5` | Equilibrio entre costo, rapidez y calidad. Para PRs de seguridad o arquitectura, `claude-opus-5-5`. |
-| `max_turns` | `8` | Tope de turnos de Claude por revisión. |
+| `max_turns` | `30` | Tope de turnos de Claude por revisión. El plugin usa varios agentes y con menos de ~20 no termina en PRs grandes. |
 | `policy_path` | `.github/claude-review.md` | Ruta de la política dentro del repositorio que llama. |
 | `debug` | `false` | Muestra la salida completa de Claude en el log. Solo para diagnosticar y por poco tiempo: el log puede incluir el contenido del PR, y en repos públicos los logs son públicos. |
 

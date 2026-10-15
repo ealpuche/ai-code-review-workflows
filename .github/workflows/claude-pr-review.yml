@@ -14,10 +14,13 @@ on:
         type: string
         default: claude-sonnet-5-5
       max_turns:
-        description: Máximo de turnos de Claude por revisión, para acotar costo y tiempo.
+        description: >-
+          Máximo de turnos de Claude por revisión, para acotar costo y tiempo.
+          El plugin code-review usa varios agentes y necesita al menos unos 20
+          en PRs grandes.
         required: false
         type: number
-        default: 8
+        default: 30
       policy_path:
         description: >-
           Ruta, dentro del repositorio que llama, del archivo con la política de
@@ -105,7 +108,9 @@ jobs:
 
       # La Action instala sus dependencias en cada corrida y a veces falla por
       # la red (por ejemplo, "Fail extracting tarball" en bun install). Por eso
-      # hay un segundo intento. Ambos usan exactamente la misma configuración.
+      # hay un segundo intento, pero solo si Claude no llegó a arrancar: un
+      # fallo de Claude (credencial, límite de turnos) se repetiría igual y
+      # costaría dos veces.
       - name: Revisar con Claude
         id: intento1
         continue-on-error: true
@@ -124,13 +129,22 @@ jobs:
             --max-turns ${{ inputs.max_turns }}
             --allowedTools "mcp__github_inline_comment__create_inline_comment"
 
-      - name: Esperar antes de reintentar
+      - name: Decidir si se reintenta
+        id: decidir
         if: steps.intento1.outcome == 'failure'
-        run: sleep 30
+        run: |
+          if [ -f "$RUNNER_TEMP/claude-execution-output.json" ]; then
+            echo "::error::Claude arrancó y falló. No se reintenta porque el resultado sería el mismo."
+            echo "reintentar=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "Claude no llegó a arrancar (falla de instalación). Se reintenta en 30 segundos."
+          echo "reintentar=true" >> "$GITHUB_OUTPUT"
+          sleep 30
 
       - name: Revisar con Claude (reintento)
         id: intento2
-        if: steps.intento1.outcome == 'failure'
+        if: steps.decidir.outputs.reintentar == 'true'
         timeout-minutes: 10
         uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1
         with:
@@ -155,6 +169,7 @@ jobs:
           | Síntoma en el log | Causa probable | Qué hacer |
           | --- | --- | --- |
           | `Fail extracting tarball` o error en `bun install` | Falla de red al instalar la Action | Volver a correr el job |
+          | `Reached maximum number of turns` | El PR necesita más turnos que el límite | Subir `max_turns` en el caller o quitarlo para usar el valor por defecto |
           | `is_error:true` con `total_cost_usd: 0` | Credencial inválida, incompleta o vencida | Regenerar con `claude setup-token` y guardarla con `printf '%s' "$T" \| gh secret set` |
           | `Falta la credencial` | No existe el secreto en el repo | Crear `CLAUDE_CODE_OAUTH_TOKEN` o `ANTHROPIC_API_KEY` |
           | Otro | Desconocida | Correr con `debug: true` en el caller y revisar la salida completa |
