@@ -88,17 +88,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # Se usa la rama y no base.sha: GitHub no actualiza base.sha al
+          # reabrir un PR, y apuntaría a una versión vieja de la rama base.
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           POLICY_PATH: ${{ inputs.policy_path }}
         run: |
           if gh api -H "Accept: application/vnd.github.raw" \
-              "repos/${REPO}/contents/${POLICY_PATH}?ref=${BASE_SHA}" > /tmp/politica.md 2>/dev/null \
+              "repos/${REPO}/contents/${POLICY_PATH}?ref=${BASE_REF}" > /tmp/politica.md 2>/dev/null \
               && [ -s /tmp/politica.md ]; then
             mkdir -p "$HOME/.claude"
             { echo "# Política de revisión de este repositorio"; echo; cat /tmp/politica.md; } >> "$HOME/.claude/CLAUDE.md"
-            echo "Política cargada desde ${POLICY_PATH} en la rama base."
+            echo "Política cargada desde ${POLICY_PATH} en la rama ${BASE_REF}."
           else
-            echo "::notice::No hay política en ${POLICY_PATH} en la rama base. Se revisa con los criterios generales."
+            echo "::notice::No hay política en ${POLICY_PATH} en la rama ${BASE_REF}. Se revisa con los criterios generales."
           fi
 
       # La Action instala sus dependencias en cada corrida y a veces falla por

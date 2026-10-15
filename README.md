@@ -79,6 +79,7 @@ Cada versión lleva su etiqueta exacta (`v1.1.0`) y la etiqueta `v1` se mueve a 
 
 | Versión | Cambios |
 | --- | --- |
+| `v1.1.1` | La política se lee de la rama base y no de `base.sha`, que GitHub no actualiza al reabrir un PR. |
 | `v1.1.0` | Reintento ante fallas temporales, Actions fijadas por SHA con Dependabot, input `debug`, resumen de fallos en el job, política cargada como memoria de usuario. |
 | `v1` | Primera versión. |
 
