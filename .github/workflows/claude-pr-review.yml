@@ -25,6 +25,14 @@ on:
         required: false
         type: string
         default: .github/claude-review.md
+      debug:
+        description: >-
+          Muestra la salida completa de Claude en el log para diagnosticar
+          fallos. Úsalo solo de forma temporal: el log puede incluir el
+          contenido del PR, y en repositorios públicos los logs son públicos.
+        required: false
+        type: boolean
+        default: false
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: Token de suscripción generado con `claude setup-token`.
@@ -67,14 +75,16 @@ jobs:
           fi
 
       - name: Descargar el PR
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 1
           persist-credentials: false
 
       - name: Cargar la política de revisión desde la rama base
         # La política se lee de la rama base para que un PR no pueda cambiar
-        # las reglas con las que se revisa a sí mismo.
+        # las reglas con las que se revisa a sí mismo. Se guarda como memoria
+        # de usuario (~/.claude/CLAUDE.md) porque la Action restaura el
+        # CLAUDE.md del repositorio desde la rama base antes de correr.
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -84,14 +94,21 @@ jobs:
           if gh api -H "Accept: application/vnd.github.raw" \
               "repos/${REPO}/contents/${POLICY_PATH}?ref=${BASE_SHA}" > /tmp/politica.md 2>/dev/null \
               && [ -s /tmp/politica.md ]; then
-            { echo; echo "# Política de revisión de este repositorio"; echo; cat /tmp/politica.md; } >> CLAUDE.md
+            mkdir -p "$HOME/.claude"
+            { echo "# Política de revisión de este repositorio"; echo; cat /tmp/politica.md; } >> "$HOME/.claude/CLAUDE.md"
             echo "Política cargada desde ${POLICY_PATH} en la rama base."
           else
             echo "::notice::No hay política en ${POLICY_PATH} en la rama base. Se revisa con los criterios generales."
           fi
 
+      # La Action instala sus dependencias en cada corrida y a veces falla por
+      # la red (por ejemplo, "Fail extracting tarball" en bun install). Por eso
+      # hay un segundo intento. Ambos usan exactamente la misma configuración.
       - name: Revisar con Claude
-        uses: anthropics/claude-code-action@v1
+        id: intento1
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -99,7 +116,44 @@ jobs:
           plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
           plugins: "code-review@claude-code-plugins"
           prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          show_full_output: ${{ inputs.debug }}
           claude_args: >-
             --model ${{ inputs.model }}
             --max-turns ${{ inputs.max_turns }}
             --allowedTools "mcp__github_inline_comment__create_inline_comment"
+
+      - name: Esperar antes de reintentar
+        if: steps.intento1.outcome == 'failure'
+        run: sleep 30
+
+      - name: Revisar con Claude (reintento)
+        id: intento2
+        if: steps.intento1.outcome == 'failure'
+        timeout-minutes: 10
+        uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          plugin_marketplaces: "https://github.com/anthropics/claude-code.git"
+          plugins: "code-review@claude-code-plugins"
+          prompt: "/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+          show_full_output: ${{ inputs.debug }}
+          claude_args: >-
+            --model ${{ inputs.model }}
+            --max-turns ${{ inputs.max_turns }}
+            --allowedTools "mcp__github_inline_comment__create_inline_comment"
+
+      - name: Explicar el fallo
+        if: failure()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'RESUMEN'
+          ## La revisión con Claude falló
+
+          | Síntoma en el log | Causa probable | Qué hacer |
+          | --- | --- | --- |
+          | `Fail extracting tarball` o error en `bun install` | Falla de red al instalar la Action | Volver a correr el job |
+          | `is_error:true` con `total_cost_usd: 0` | Credencial inválida, incompleta o vencida | Regenerar con `claude setup-token` y guardarla con `printf '%s' "$T" \| gh secret set` |
+          | `Falta la credencial` | No existe el secreto en el repo | Crear `CLAUDE_CODE_OAUTH_TOKEN` o `ANTHROPIC_API_KEY` |
+          | Otro | Desconocida | Correr con `debug: true` en el caller y revisar la salida completa |
+          RESUMEN
